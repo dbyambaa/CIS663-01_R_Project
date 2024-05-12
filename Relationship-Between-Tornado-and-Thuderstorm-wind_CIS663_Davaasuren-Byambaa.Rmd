@@ -1,0 +1,156 @@
+---
+title: "Relationship Between Tornado and Thunderstorm Wind"
+author: "Davaasuren Byambaa"
+date: "2024-05-11"
+output: word_document
+---
+
+## Abstract
+
+This paper investigates the relationship between Tornado and Thunderstorm Wind using simple linear regression analysis in R. It is important to understand the relationship between Tornado and Thunderstorm wind since the vertical swirling wind of Tornado extends from the base of Thunderstorm cloud and touch down ground where it can be fatal. Data used in the analysis is retrieved from the National Oceanic and Atmospheric Administration's website. Data was cleaned and organized in R using dplyr package, ggplot for graph, and simply linear regression analysis used in analysis. Result found that Tornado and Thunderstorm wind has positive relationship and p-value show Thunderstorm wind is statistically significant based on p value. However, using only one independent variable is not ideal to get a glimpse of actual complex environment of Tornado. Therefore, future researchers should use more independent variables to get closer information on what really happens in complex environment of Tornado events.
+
+## Introduction 
+
+USA alone experience about 1,200 Tornadoes in a year (NOAA National Severe Storms Laboratory, n.d.) which can be fatal and economically expensive to dealt with. It is not possible to exactly when and where Tornado will form even with today's advanced technology since we still do not completely understand how tornadoes form (NOAA National Severe Storms Laboratory, n.d.). In this study data is simplified into one independent variable (Thunderstorm Wind) and one dependent variable (Tornado) for soul purpose of understanding the extend of relationship between the variables. 
+
+## Literature Review
+
+When predicting severe weather (including tornadoes) a day or two in advance, we look for the development of temperature and wind flow patterns in the atmosphere which can cause enough moisture, instability, lift, and wind shear for tornadic thunderstorms. Those are the four needed ingredients. But it is not as easy as it sounds. "How much is enough" of those is not a hard fast number, but varies a lot from situation to situation, and sometimes is unknown!" (American Geosciences Institution, n.d.). On top of these for four key ingredients slight change in the latitude and longitude can influence the situation into complete other direction. Therefore, it is important to keep exploring the variables that influence the Tornado so we can be better prepared for it. 
+
+## Theory 
+
+Tornado and Thunderstorm Wind has a positive relationship.
+
+## Data
+
+Data that used in the analyse is retrieved from National Oceanic and Atmosphere Administration website at https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/.
+
+```{r, include=FALSE}
+StormData<- read.csv("StormEvents_details-ftp_v1.0_d2023_c20240418.csv", header=TRUE)
+```
+
+data sample 
+```{r}
+head(StormData)
+```
+
+## Methodology 
+
+The imported data had 74909 obs and 51 variables. Therefor, first step in the cleaning is to select the columns that would be used in the analysis based on the column descriptions. 
+
+Column names and descriptions from National Oceanic and Atmospheric Administration.
+
+1. episode_id - ID assigned by NWS to denote the storm episode; Episodes may contain multiple Events.The                       occurrence of storms and other significant weather phenomena having sufficient intensity to                    cause loss of life, injuries, significant property damage, and/or disruption to commerce.
+2. event_type - The only events permitted in Storm Data are listed in Table 1 of Section 2.1.1 of NWS Directive                 10-1605 at http://www.nws.noaa.gov/directives/sym/pd01016005curr.pdf. The chosen event name                    should be the one that most accurately describes the meteorological event leading to                           fatalities, injuries, damage, etc. However, significant events, such as tornadoes, having no                   impact or causing no damage, should also be included in Storm Data
+3. magnitude -  The measured extent of the magnitude type ~ only used for wind speeds (in knots) and hail                      size(in inches to the hundredth).
+4. tor_f_scale - Enhanced Fujita Scale describes the strength of the tornado based on the amount and type of
+                damage caused by the tornado. The F-scale of damage will vary in the destruction area;
+                therefore, the highest value of the F-scale is recorded for each event.
+                
+                    + EF0 – Light Damage (40 – 72 mph)
+                    + EF1 – Moderate Damage (73 – 112 mph)
+                    + EF2 – Significant damage (113 – 157 mph)
+                    + EF3 – Severe Damage (158 – 206 mph)
+                    + EF4 – Devastating Damage (207 – 260 mph)
+                    + EF5 – Incredible Damage (261 – 318 mph)
+                    + EFU - tornadoes with lack of damage report
+                    
+Actual code for selecting the columns
+
+```{r warning=FALSE, message=FALSE}
+require(dplyr)
+Tornadoes<- StormData%>%select(EPISODE_ID, EVENT_TYPE, MAGNITUDE, TOR_F_SCALE)
+```
+
+From the Event_Type column dependent variable "Tornado" and independent variable "Thunderstorm Wind" events were extracted for the analysis. 
+
+```{r warning=FALSE, message=FALSE}
+df_raw<-Tornadoes[Tornadoes$EVENT_TYPE == c("Tornado", "Thunderstorm Wind"),]
+```
+
+Next weather episodes are grouped together and average of Thunderstorm wind speed calculated since single episode could contain multiple events. NAs are ignored in calculating the average and NAN were romeved from the list with na.omit(). 
+
+```{r warning=FALSE, message=FALSE}
+Thunderstorm<-df_raw %>% group_by(EPISODE_ID) %>% summarize(ThunderstormWind=mean(MAGNITUDE, na.rm=TRUE))
+Thunderstorm<-(na.omit(Thunderstorm))
+```
+
+After the calculation the new column was merged back with the selected column data frame by matching the episode_id column.
+
+```{r warning=FALSE, message=FALSE}
+final<-merge(df_raw, Thunderstorm, by="EPISODE_ID")
+```
+
+After merger cloumns event_type and magnitude are removed as now tor_r_scale column will be used for dependent variable "Tornado" and Thunderstormwind column will be used for independent variable "Thunderstormwind". Also, the duplicates are removed from the dataframe.
+
+```{r warning=FALSE, message=FALSE}
+final<-final[-c(2,3)]
+final<-final%>%distinct()
+```
+
+After finish cleaning. Character value of tor_f_scale columns are replaced with numerical values according to their strenght. 
+
+```{r warning=FALSE, message=FALSE}
+final$TOR_F_SCALE[final$TOR_F_SCALE == ""]<-1
+final$TOR_F_SCALE[final$TOR_F_SCALE == "EFU"]<-2
+final$TOR_F_SCALE[final$TOR_F_SCALE == "EF0"]<-3
+final$TOR_F_SCALE[final$TOR_F_SCALE == "EF1"]<-4
+final$TOR_F_SCALE[final$TOR_F_SCALE == "EF2"]<-5
+final$TOR_F_SCALE[final$TOR_F_SCALE == "EF3"]<-6
+final$TOR_F_SCALE[final$TOR_F_SCALE == "EF4"]<-7
+```
+
+Plot of the variables.
+
+```{r warning=FALSE, message=FALSE, echo = FALSE}
+library(ggplot2)
+ggplot(final, aes(x=ThunderstormWind, y=TOR_F_SCALE)) + geom_point()+geom_smooth(method="lm")
+  labs(x="ThunderstormWind", y="TOR_F_SCALE")
+```
+
+Also, Thunderstormwind speeds are replaced with smaller numbers based on their strenght to make an afford to actual display of relationship between Tornado and Thunderstorm wind. 
+
+```{r warning=FALSE, message=FALSE}
+final$ThunderstormWind[final$ThunderstormWind <= "10"]<-1
+final$ThunderstormWind[final$ThunderstormWind > "10" & final$Thunderstorm <="20"]<-2
+final$ThunderstormWind[final$ThunderstormWind > "20" & final$Thunderstorm <="30"]<-3
+final$ThunderstormWind[final$ThunderstormWind > "30" & final$Thunderstorm <="40"]<-4
+final$ThunderstormWind[final$ThunderstormWind > "40" & final$Thunderstorm <="50"]<-5
+final$ThunderstormWind[final$ThunderstormWind > "50" & final$Thunderstorm <="60"]<-6
+final$ThunderstormWind[final$ThunderstormWind > "60" & final$Thunderstorm <="70"]<-7
+final$ThunderstormWind[final$ThunderstormWind > "70" & final$Thunderstorm <="80"]<-8
+final$ThunderstormWind[final$ThunderstormWind > "80" & final$Thunderstorm <="90"]<-9
+final$ThunderstormWind[final$ThunderstormWind > "90" & final$Thunderstorm <="100"]<-10
+```
+
+
+  
+Simple Linear Regression Analysis
+
+```{r warning=FALSE, message=FALSE, include=TRUE}
+final_lm<-lm(TOR_F_SCALE~ThunderstormWind, data=final)
+```
+
+## Result 
+  
+```{r warning=FALSE, message=FALSE, include=TRUE}
+summary(final_lm)
+```
+
+Theory of Tornado and Thunderstorm wind has a positivie relationship has supported with the intercept of  1.150264  and p-value 0.002579 of simple linear regression model from our R analysis. Which indicates that when there are a extreme Thunderstorm wind likelyhood of Tornado forming increases.
+
+## Implications 
+
+Based on findings of this analysis I would recommend researchers to not over simplify their dataset as I have done here. As mentioned beginning of the paper Tornadoes are far more complicated than just been caused by extrem wind. Therefor, it is crucial to add my variables to better represent the real situation. 
+
+## Conclusions
+
+Simple linear regression model in this analysis support the theory of positive relationship between Tornado and Thunderstorm wind. However, I believe that due to the over simplification of the data this model is not good indicater od real world problem. 
+
+## References 
+1. National Oceanic and Atmospheric Administration.(2024, April 18). *Storm Events*. 	                               https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/
+2. NOAA National Severe Storms Laboratory. (n.d.). *Severe Weather 101*. 
+      https://www.nssl.noaa.gov/education/svrwx101/tornadoes/#:~:text=How%20many%20tornadoes%20occur%20in,torna       does%20hit%20the%20U.S.%20yearly.
+3. American Geosciences Institution. (n.d.). *How do you forecast Tornadoes?*.                                        https://www.americangeosciences.org/critical-issues/faq/how-do-you-forecast-tornadoes
+4. National Oceanic and Atmospheric Administration.(n.d.). *Detailed information about the fields/columns*.           https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/Storm-Data-Bulk-csv-Format.pdf
+  
